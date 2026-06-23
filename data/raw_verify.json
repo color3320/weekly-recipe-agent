@@ -1,0 +1,37 @@
+{
+  "source": "https://otel-hackathon-data-site.vercel.app",
+  "url": "https://otel-hackathon-data-site.vercel.app/verify",
+  "scraped_at": "2026-06-11T17:49:48+00:00",
+  "raw_text": "Verification targets\n\nLive checksums for the dataset as of 2026-06-11. After you scrape and load the data, your numbers should match these exactly. If they do not, your scrape is incomplete or your business logic is off.\n\nROW COUNTS\ntotal_reservations\n250\ntotal_stay_rows\n516\ncurrent_reservations\n150\nlast_year_reservations\n100\ncancelled_reservations\n20\nON THE BOOKS (CURRENT, RESERVED, STAY_DATE ≥ TODAY)\notb_room_nights\n649\notb_room_revenue_before_tax\n117,566.00\notb_total_revenue_before_tax\n126,458.00\nSAME TIME LAST YEAR (LAST_YEAR, RESERVED)\nstly_room_nights\n340\nstly_total_revenue_before_tax\n70,972.00\nADR BY ROOM TYPE (CURRENT, RESERVED)\nEX\n248.53\nTB\n178.50\nKS\n188.21\nON-THE-BOOKS ROOM NIGHTS BY MARKET CODE\nSMERF\n199\nEVEN\n140\nOTA\n71\nCNI\n58\nBAR\n44\nCSR\n41\nPROM\n41\nCNR\n22\nCGR\n21\nFIT\n12\nRaw JSON",
+  "raw_json": {
+    "anchor_date": "2026-06-11",
+    "total_reservations": 250,
+    "total_stay_rows": 516,
+    "current_reservations": 150,
+    "last_year_reservations": 100,
+    "cancelled_reservations": 20,
+    "otb_room_nights": 649,
+    "otb_total_revenue_before_tax": 126458,
+    "otb_room_revenue_before_tax": 117566,
+    "stly_room_nights": 340,
+    "stly_total_revenue_before_tax": 70972,
+    "adr_by_room_type": {
+      "EX": 248.53,
+      "TB": 178.5,
+      "KS": 188.21
+    },
+    "otb_room_nights_by_market": {
+      "OTA": 71,
+      "CSR": 41,
+      "CNR": 22,
+      "BAR": 44,
+      "PROM": 41,
+      "EVEN": 140,
+      "SMERF": 199,
+      "FIT": 12,
+      "CNI": 58,
+      "CGR": 21
+    }
+  },
+  "sections": {}
+}

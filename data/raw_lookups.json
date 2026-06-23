@@ -1,0 +1,112 @@
+{
+  "source": "https://otel-hackathon-data-site.vercel.app",
+  "scraped_at": "2026-06-11T17:49:34+00:00",
+  "dataset_metadata": {
+    "as_of_date": "2026-06-11",
+    "scraped_at": "2026-06-11T17:49:34+00:00"
+  },
+  "room_type_lookup": [
+    {
+      "SPACE_TYPE": "EX",
+      "ROOM_CLASS": "Executive",
+      "DISPLAY_NAME": "Executive King",
+      "NUMBER_OF_ROOMS": "26"
+    },
+    {
+      "SPACE_TYPE": "KS",
+      "ROOM_CLASS": "Standard",
+      "DISPLAY_NAME": "Standard King",
+      "NUMBER_OF_ROOMS": "52"
+    },
+    {
+      "SPACE_TYPE": "TB",
+      "ROOM_CLASS": "Standard",
+      "DISPLAY_NAME": "Standard Twin",
+      "NUMBER_OF_ROOMS": "20"
+    }
+  ],
+  "market_code_lookup": [
+    {
+      "MARKET_CODE": "BAR",
+      "MARKET_NAME": "Best Available Retail",
+      "MACRO_GROUP": "Retail",
+      "DESCRIPTION": "Direct flexible retail business."
+    },
+    {
+      "MARKET_CODE": "CGR",
+      "MARKET_NAME": "Corporate Group",
+      "MACRO_GROUP": "MICE",
+      "DESCRIPTION": "Corporate group blocks and meetings business."
+    },
+    {
+      "MARKET_CODE": "CNI",
+      "MARKET_NAME": "Conference / Incentive Group",
+      "MACRO_GROUP": "MICE",
+      "DESCRIPTION": "Group business tied to conferences or incentives."
+    },
+    {
+      "MARKET_CODE": "CNR",
+      "MARKET_NAME": "Corporate Room Nights",
+      "MACRO_GROUP": "Corporate",
+      "DESCRIPTION": "Corporate transient business via agency or negotiated accounts."
+    },
+    {
+      "MARKET_CODE": "CSR",
+      "MARKET_NAME": "Corporate Negotiated",
+      "MACRO_GROUP": "Corporate",
+      "DESCRIPTION": "Negotiated corporate transient business."
+    },
+    {
+      "MARKET_CODE": "EVEN",
+      "MARKET_NAME": "Event Demand",
+      "MACRO_GROUP": "MICE",
+      "DESCRIPTION": "Demand associated with citywide or hotel-linked events."
+    },
+    {
+      "MARKET_CODE": "FIT",
+      "MARKET_NAME": "Free Independent Traveller",
+      "MACRO_GROUP": "Leisure",
+      "DESCRIPTION": "Independent leisure demand, often direct or contracted."
+    },
+    {
+      "MARKET_CODE": "OTA",
+      "MARKET_NAME": "Online Travel Agency",
+      "MACRO_GROUP": "Retail",
+      "DESCRIPTION": "Third-party online channels such as Booking.com and Expedia."
+    },
+    {
+      "MARKET_CODE": "PROM",
+      "MARKET_NAME": "Promotional Retail",
+      "MACRO_GROUP": "Retail",
+      "DESCRIPTION": "Direct promotional and member-rate retail bookings."
+    },
+    {
+      "MARKET_CODE": "SMERF",
+      "MARKET_NAME": "SMERF Group",
+      "MACRO_GROUP": "Leisure Group",
+      "DESCRIPTION": "Social, military, educational, religious, fraternal groups."
+    }
+  ],
+  "channel_code_lookup": [
+    {
+      "CHANNEL_CODE": "EMA",
+      "CHANNEL_NAME": "Email / Central Reservations",
+      "CHANNEL_GROUP": "Offline"
+    },
+    {
+      "CHANNEL_CODE": "REC",
+      "CHANNEL_NAME": "Direct Reservations / Brand Web",
+      "CHANNEL_GROUP": "Direct"
+    },
+    {
+      "CHANNEL_CODE": "WAL",
+      "CHANNEL_NAME": "Walk-in",
+      "CHANNEL_GROUP": "Offline"
+    },
+    {
+      "CHANNEL_CODE": "WEB",
+      "CHANNEL_NAME": "Web / OTA Web",
+      "CHANNEL_GROUP": "Digital"
+    }
+  ]
+}

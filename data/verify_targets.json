@@ -1,0 +1,34 @@
+{
+  "source": "https://otel-hackathon-data-site.vercel.app/verify",
+  "scraped_at": "2026-06-11T17:49:48+00:00",
+  "anchor_date": "2026-06-11",
+  "scalars": {
+    "total_reservations": 250,
+    "total_stay_rows": 516,
+    "current_reservations": 150,
+    "last_year_reservations": 100,
+    "cancelled_reservations": 20,
+    "otb_room_nights": 649,
+    "otb_room_revenue_before_tax": 117566,
+    "otb_total_revenue_before_tax": 126458,
+    "stly_room_nights": 340,
+    "stly_total_revenue_before_tax": 70972
+  },
+  "adr_by_room_type": {
+    "EX": 248.53,
+    "TB": 178.5,
+    "KS": 188.21
+  },
+  "otb_room_nights_by_market": {
+    "OTA": 71,
+    "CSR": 41,
+    "CNR": 22,
+    "BAR": 44,
+    "PROM": 41,
+    "EVEN": 140,
+    "SMERF": 199,
+    "FIT": 12,
+    "CNI": 58,
+    "CGR": 21
+  }
+}

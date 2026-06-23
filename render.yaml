@@ -1,0 +1,34 @@
+# Render Blueprint — Web Service + Postgres on Render (no Supabase).
+# Deploy: Render Dashboard → Blueprint → connect this repo.
+#
+# One-time ETL from your laptop uses the Postgres *External* URL from the
+# Render dashboard (Settings → Connections). The web service gets DATABASE_URL
+# automatically via fromDatabase below.
+
+databases:
+  - name: hotel-db
+    databaseName: hotel_hackathon
+    user: hotel_hackathon
+    plan: free
+
+services:
+  - type: web
+    name: revenue-manager-agent
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hotel-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AGENT_MODEL
+        value: anthropic:claude-sonnet-4-6
+      - key: BASIC_AUTH_USER
+        sync: false
+      - key: BASIC_AUTH_PASS
+        sync: false

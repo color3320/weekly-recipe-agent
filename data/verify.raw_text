@@ -1,0 +1,56 @@
+Verification targets
+
+Live checksums for the dataset as of 2026-06-11. After you scrape and load the data, your numbers should match these exactly. If they do not, your scrape is incomplete or your business logic is off.
+
+ROW COUNTS
+total_reservations
+250
+total_stay_rows
+516
+current_reservations
+150
+last_year_reservations
+100
+cancelled_reservations
+20
+ON THE BOOKS (CURRENT, RESERVED, STAY_DATE ≥ TODAY)
+otb_room_nights
+649
+otb_room_revenue_before_tax
+117,566.00
+otb_total_revenue_before_tax
+126,458.00
+SAME TIME LAST YEAR (LAST_YEAR, RESERVED)
+stly_room_nights
+340
+stly_total_revenue_before_tax
+70,972.00
+ADR BY ROOM TYPE (CURRENT, RESERVED)
+EX
+248.53
+TB
+178.50
+KS
+188.21
+ON-THE-BOOKS ROOM NIGHTS BY MARKET CODE
+SMERF
+199
+EVEN
+140
+OTA
+71
+CNI
+58
+BAR
+44
+CSR
+41
+PROM
+41
+CNR
+22
+CGR
+21
+FIT
+12
+Raw JSON

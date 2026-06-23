@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Revenue Manager Agent</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --tool: #6366f1;
+      --skill: #10b981;
+      --subagent: #f59e0b;
+      --todo: #ec4899;
+      --answer: #f1f5f9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header p { color: var(--muted); font-size: 0.875rem; margin-top: 0.25rem; }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 0;
+      max-height: calc(100vh - 120px);
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      .activity { max-height: 280px; }
+    }
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+    }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .msg { margin-bottom: 1.25rem; max-width: 90%; }
+    .msg.user { margin-left: auto; }
+    .msg.user .bubble {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 12px 12px 4px 12px;
+    }
+    .msg.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 12px 4px;
+      color: var(--answer);
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+    .bubble { padding: 0.875rem 1rem; font-size: 0.9375rem; }
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    #question {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9375rem;
+    }
+    #question:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+    button {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9375rem;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: var(--border); }
+    .activity {
+      overflow-y: auto;
+      padding: 1rem;
+      background: #0b1017;
+    }
+    .activity h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .event {
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.625rem;
+      margin-bottom: 0.375rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--border);
+      background: var(--surface);
+      word-break: break-word;
+    }
+    .event.tool { border-left-color: var(--tool); }
+    .event.skill { border-left-color: var(--skill); }
+    .event.subagent { border-left-color: var(--subagent); }
+    .event.todo { border-left-color: var(--todo); }
+    .event.error { border-left-color: #ef4444; color: #fca5a5; }
+    .event .label {
+      font-weight: 600;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.2rem;
+    }
+    .event.tool .label { color: var(--tool); }
+    .event.skill .label { color: var(--skill); }
+    .event.subagent .label { color: var(--subagent); }
+    .event.todo .label { color: var(--todo); }
+    .hitl-box {
+      margin: 1rem 1.5rem;
+      padding: 1rem;
+      background: #422006;
+      border: 1px solid #b45309;
+      border-radius: 8px;
+      display: none;
+    }
+    .hitl-box.visible { display: block; }
+    .hitl-box p { margin-bottom: 0.75rem; font-size: 0.875rem; }
+    .hitl-actions { display: flex; gap: 0.5rem; }
+    .hitl-actions button.approve { background: #16a34a; }
+    .hitl-actions button.reject { background: #dc2626; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Revenue Manager Agent</h1>
+    <p>Grand Harbour Hotel — commercial intelligence for the General Manager</p>
+  </header>
+  <main>
+    <section class="chat-panel">
+      <div class="messages" id="messages"></div>
+      <div class="hitl-box" id="hitl-box">
+        <p id="hitl-text">SQL query pending your approval.</p>
+        <div class="hitl-actions">
+          <button class="approve" id="hitl-approve">Approve</button>
+          <button class="reject" id="hitl-reject">Reject</button>
+        </div>
+      </div>
+      <div class="input-row">
+        <input id="question" type="text" placeholder="Ask about revenue, pace, segments, risk…" />
+        <button id="send">Send</button>
+      </div>
+    </section>
+    <aside class="activity">
+      <h2>Agent activity</h2>
+      <div id="activity-log"></div>
+    </aside>
+  </main>
+  <script>
+    const messagesEl = document.getElementById("messages");
+    const activityEl = document.getElementById("activity-log");
+    const questionEl = document.getElementById("question");
+    const sendBtn = document.getElementById("send");
+    const hitlBox = document.getElementById("hitl-box");
+    const hitlText = document.getElementById("hitl-text");
+    const hitlApprove = document.getElementById("hitl-approve");
+    const hitlReject = document.getElementById("hitl-reject");
+
+    let currentThreadId = null;
+    let answerBubble = null;
+    let answerText = "";
+    let streaming = false;
+
+    function addUserMessage(text) {
+      const div = document.createElement("div");
+      div.className = "msg user";
+      div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function startAssistantBubble() {
+      const div = document.createElement("div");
+      div.className = "msg assistant";
+      answerBubble = document.createElement("div");
+      answerBubble.className = "bubble";
+      div.appendChild(answerBubble);
+      messagesEl.appendChild(div);
+      answerText = "";
+    }
+
+    function appendToken(text) {
+      if (!answerBubble) startAssistantBubble();
+      answerText += text;
+      answerBubble.textContent = answerText;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function setFinalAnswer(text) {
+      if (!answerBubble) startAssistantBubble();
+      answerText = text;
+      answerBubble.textContent = text;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function logActivity(type, html) {
+      const labels = {
+        tool_start: ["tool", "Tool"],
+        tool_end: ["tool", "Tool result"],
+        skill: ["skill", "Skill"],
+        subagent: ["subagent", "Subagent"],
+        todo: ["todo", "Planning"],
+        error: ["error", "Error"],
+      };
+      const [cls, label] = labels[type] || ["tool", type];
+      const el = document.createElement("div");
+      el.className = `event ${cls}`;
+      el.innerHTML = `<div class="label">${label}</div>${html}`;
+      activityEl.appendChild(el);
+      activityEl.scrollTop = activityEl.scrollHeight;
+    }
+
+    function clearActivity() {
+      activityEl.innerHTML = "";
+    }
+
+    function apiUrl(path) {
+      return `${window.location.protocol}//${window.location.host}${path}`;
+    }
+
+    async function startChat(message) {
+      const res = await fetch(apiUrl("/api/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      return data.thread_id;
+    }
+
+    function openStream(threadId) {
+      return new Promise((resolve, reject) => {
+        const es = new EventSource(apiUrl(`/api/chat/${threadId}/stream`));
+        es.onmessage = (ev) => {
+          let payload;
+          try { payload = JSON.parse(ev.data); } catch { return; }
+          handleEvent(payload, threadId, es, resolve);
+        };
+        es.onerror = () => {
+          es.close();
+          if (streaming) reject(new Error("Stream connection lost"));
+        };
+      });
+    }
+
+    function handleEvent(payload, threadId, es, resolve) {
+      const t = payload.type;
+      if (t === "token") {
+        appendToken(payload.text || "");
+      } else if (t === "tool_start") {
+        logActivity("tool_start", `<strong>${escapeHtml(payload.name || "")}</strong>`);
+      } else if (t === "tool_end") {
+        const out = (payload.output || "").slice(0, 200);
+        logActivity("tool_end", `<strong>${escapeHtml(payload.name || "")}</strong><br>${escapeHtml(out)}`);
+      } else if (t === "skill") {
+        logActivity("skill", escapeHtml(payload.path || ""));
+      } else if (t === "subagent") {
+        logActivity("subagent",
+          `<strong>${escapeHtml(payload.subagent_type || "")}</strong><br>${escapeHtml(payload.description || "")}`);
+      } else if (t === "todo") {
+        const todos = payload.todos;
+        let html = "";
+        if (Array.isArray(todos)) {
+          html = todos.map(item => {
+            if (typeof item === "object") return escapeHtml(JSON.stringify(item));
+            return escapeHtml(String(item));
+          }).join("<br>");
+        } else if (typeof todos === "object") {
+          html = escapeHtml(JSON.stringify(todos, null, 2));
+        } else {
+          html = escapeHtml(String(todos || ""));
+        }
+        logActivity("todo", html);
+      } else if (t === "interrupt") {
+        es.close();
+        streaming = false;
+        showHitl(payload.action_requests || [], threadId);
+        resolve({ interrupted: true, threadId });
+      } else if (t === "done") {
+        es.close();
+        streaming = false;
+        if (payload.answer) setFinalAnswer(payload.answer);
+        sendBtn.disabled = false;
+        resolve({ interrupted: false });
+      } else if (t === "error") {
+        es.close();
+        streaming = false;
+        logActivity("error", escapeHtml(payload.message || "Unknown error"));
+        sendBtn.disabled = false;
+        resolve({ error: true });
+      }
+    }
+
+    function showHitl(actionRequests, threadId) {
+      currentThreadId = threadId;
+      const req = actionRequests[0];
+      const desc = req ? JSON.stringify(req, null, 2) : "run_sql pending approval";
+      hitlText.textContent = `Human approval required:\n${desc}`;
+      hitlBox.classList.add("visible");
+      sendBtn.disabled = false;
+    }
+
+    async function resumeChat(threadId, decisions) {
+      hitlBox.classList.remove("visible");
+      streaming = true;
+      sendBtn.disabled = true;
+      const res = await fetch(apiUrl(`/api/chat/${threadId}/resume`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decisions }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await openStream(threadId);
+    }
+
+    hitlApprove.addEventListener("click", async () => {
+      if (!currentThreadId) return;
+      try {
+        await resumeChat(currentThreadId, [{ type: "approve" }]);
+      } catch (e) {
+        logActivity("error", escapeHtml(String(e)));
+        sendBtn.disabled = false;
+      }
+    });
+
+    hitlReject.addEventListener("click", async () => {
+      if (!currentThreadId) return;
+      try {
+        await resumeChat(currentThreadId, [{
+          type: "reject",
+          message: "User rejected run_sql. Do not retry. Explain limitation.",
+        }]);
+      } catch (e) {
+        logActivity("error", escapeHtml(String(e)));
+        sendBtn.disabled = false;
+      }
+    });
+
+    async function sendQuestion() {
+      const q = questionEl.value.trim();
+      if (!q || streaming) return;
+      questionEl.value = "";
+      addUserMessage(q);
+      clearActivity();
+      answerBubble = null;
+      streaming = true;
+      sendBtn.disabled = true;
+      hitlBox.classList.remove("visible");
+
+      try {
+        const threadId = await startChat(q);
+        currentThreadId = threadId;
+        await openStream(threadId);
+      } catch (e) {
+        logActivity("error", escapeHtml(String(e)));
+        sendBtn.disabled = false;
+        streaming = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", sendQuestion);
+    questionEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendQuestion();
+    });
+  </script>
+</body>
+</html>
