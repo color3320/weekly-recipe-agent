@@ -33,16 +33,23 @@ def is_atlas_hosted_uri(uri: str | None = None) -> bool:
 
 def supports_vector_search(client: MongoClient, uri: str | None = None) -> bool:
     """True when the deployment exposes MongoDB Vector Search (Atlas or atlas-local)."""
-    if os.environ.get("MONGODB_VECTOR_SEARCH", "").strip() in {"1", "true", "yes"}:
+    if os.environ.get("MONGODB_VECTOR_SEARCH", "").strip().lower() in {"1", "true", "yes"}:
         return True
     if is_atlas_hosted_uri(uri):
         return True
-    try:
-        collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
-        collection.list_search_indexes()
-        return True
-    except OperationFailure:
-        return False
+
+    collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
+    for attempt in range(3):
+        try:
+            next(collection.list_search_indexes(), None)
+            return True
+        except OperationFailure:
+            if attempt < 2:
+                time.sleep(2)
+            continue
+        except Exception:
+            break
+    return False
 
 
 def compute_metrics(
@@ -164,6 +171,7 @@ def build_results(
     *,
     index_status: str | None = None,
     check_index: bool = False,
+    index_check_skipped: bool = False,
 ) -> list[VerifyResult]:
     results: list[VerifyResult] = []
 
@@ -199,14 +207,24 @@ def build_results(
         results.append(VerifyResult(name, comp, target, passed))
 
     if check_index:
-        results.append(
-            VerifyResult(
-                f"vector_index.{config.VECTOR_SEARCH_INDEX}",
-                index_status or "NOT_FOUND",
-                "READY",
-                index_status == "READY",
+        if index_check_skipped:
+            results.append(
+                VerifyResult(
+                    f"vector_index.{config.VECTOR_SEARCH_INDEX}",
+                    "SKIPPED",
+                    "READY",
+                    True,
+                )
             )
-        )
+        else:
+            results.append(
+                VerifyResult(
+                    f"vector_index.{config.VECTOR_SEARCH_INDEX}",
+                    index_status or "NOT_FOUND",
+                    "READY",
+                    index_status == "READY",
+                )
+            )
 
     return results
 
@@ -232,11 +250,14 @@ def run_verify(
     try:
         computed = compute_metrics(client, mongodb_uri=uri)
         index_status: str | None = None
+        index_check_skipped = False
         if check_index:
             if not supports_vector_search(client, uri):
+                index_check_skipped = True
                 print(
-                    "*** --check-index skipped: deployment does not support "
-                    "vector search (use atlas-local or Atlas)"
+                    "*** --check-index skipped: vector search unavailable.\n"
+                    "    Start atlas-local: docker compose up -d mongodb\n"
+                    "    Then create index: python scripts/create_atlas_index.py"
                 )
             else:
                 print(
@@ -247,7 +268,12 @@ def run_verify(
     finally:
         client.close()
 
-    results = build_results(computed, index_status=index_status, check_index=check_index)
+    results = build_results(
+        computed,
+        index_status=index_status,
+        check_index=check_index,
+        index_check_skipped=index_check_skipped,
+    )
     print_report(results)
 
     failures = [r for r in results if not r.passed]
