@@ -82,27 +82,62 @@ def compute_metrics(
     }
 
 
+def _index_is_ready(index: dict[str, Any]) -> bool:
+    if index.get("queryable") is True:
+        return True
+    return index.get("status") == "READY"
+
+
 def check_vector_index_ready(
     client: MongoClient,
     *,
     index_name: str | None = None,
-    timeout_sec: int = 300,
-    poll_interval_sec: int = 5,
-) -> str | None:
-    """Return index status if found, else None. Poll until READY or timeout."""
+    timeout_sec: int | None = None,
+    poll_interval_sec: int = 10,
+    log_progress: bool = True,
+) -> str:
+    """Poll until the vector index is queryable. Returns final status label."""
     name = index_name or config.VECTOR_SEARCH_INDEX
     collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
-    deadline = time.monotonic() + timeout_sec
+    timeout = timeout_sec if timeout_sec is not None else config.INDEX_READY_TIMEOUT_SEC
+    deadline = time.monotonic() + timeout
+    last_status = "NOT_FOUND"
+    last_num_docs: int | None = None
 
     while time.monotonic() < deadline:
+        found = False
         for index in collection.list_search_indexes():
-            if index.get("name") == name:
-                status = index.get("status", "UNKNOWN")
-                if status == "READY":
-                    return status
-                if status in {"FAILED", "DOES_NOT_EXIST"}:
-                    return status
+            if index.get("name") != name:
+                continue
+            found = True
+            last_status = index.get("status", "UNKNOWN")
+            last_num_docs = index.get("numDocs")
+            queryable = index.get("queryable")
+
+            if log_progress:
+                docs = "?" if last_num_docs is None else str(last_num_docs)
+                print(
+                    f"  index {name!r}: status={last_status}, "
+                    f"queryable={queryable}, numDocs={docs}"
+                )
+
+            if _index_is_ready(index):
+                return "READY"
+
+            if last_status in {"FAILED", "DOES_NOT_EXIST"}:
+                return last_status
+
+        if not found and log_progress:
+            print(f"  index {name!r}: not found yet")
+
         time.sleep(poll_interval_sec)
+
+    if last_status == "BUILDING" and (last_num_docs or 0) == 0:
+        print(
+            "\n  Hint: auto-embed index still building with numDocs=0. "
+            "Check docker logs for Voyage 429 rate limits; confirm VOYAGE_API_KEY "
+            "in .env and that the mongodb container was started with it."
+        )
 
     return "TIMEOUT"
 
@@ -187,7 +222,10 @@ def run_verify(
                     "vector search (use atlas-local or Atlas)"
                 )
             else:
-                print(f"Polling vector index {config.VECTOR_SEARCH_INDEX!r} for READY...")
+                print(
+                    f"Polling vector index {config.VECTOR_SEARCH_INDEX!r} "
+                    f"(timeout {config.INDEX_READY_TIMEOUT_SEC}s)..."
+                )
                 index_status = check_vector_index_ready(client)
     finally:
         client.close()

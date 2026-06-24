@@ -13,6 +13,8 @@ MONGODB_DB = os.environ.get("MONGODB_DB", "weekly_recipes")
 RECIPES_COLLECTION = "recipes"
 VECTOR_SEARCH_INDEX = "recipe_vec"
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "voyage-4-lite")
+# Auto-embed over ~6.8k docs can take a while (Voyage rate limits on free tier).
+INDEX_READY_TIMEOUT_SEC = int(os.environ.get("INDEX_READY_TIMEOUT_SEC", "3600"))
 
 EXPECTED_TOTAL_DOCS = 6871
 EXPECTED_MAIN_DOCS = 2862

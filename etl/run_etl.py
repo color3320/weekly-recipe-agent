@@ -48,48 +48,56 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-index",
         action="store_true",
-        help="Poll vector search index until READY (Atlas or atlas-local).",
+        help="Poll vector search index until READY/queryable (Atlas or atlas-local).",
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Skip extract/transform/load; run verify only (use with --check-index).",
     )
     args = parser.parse_args(argv)
 
-    print("=== Extract ===")
-    try:
-        rows = run_extract()
-        print(f"  {len(rows)} rows from xlsx")
-    except Exception as exc:
-        print(f"*** Extract failed: {exc}")
-        return 1
+    if not args.verify_only:
+        print("=== Extract ===")
+        try:
+            rows = run_extract()
+            print(f"  {len(rows)} rows from xlsx")
+        except Exception as exc:
+            print(f"*** Extract failed: {exc}")
+            return 1
 
-    print("\n=== Transform ===")
-    try:
-        transform_result = run_transform(rows)
-    except TransformValidationError as exc:
-        print(f"*** Transform validation failed ({len(exc.errors)} error(s))")
-        for err in exc.errors[:20]:
-            print(f"  - {err}")
-        return 1
-    except Exception as exc:
-        print(f"*** Transform failed: {exc}")
-        return 1
+        print("\n=== Transform ===")
+        try:
+            transform_result = run_transform(rows)
+        except TransformValidationError as exc:
+            print(f"*** Transform validation failed ({len(exc.errors)} error(s))")
+            for err in exc.errors[:20]:
+                print(f"  - {err}")
+            return 1
+        except Exception as exc:
+            print(f"*** Transform failed: {exc}")
+            return 1
 
-    print(
-        f"  {transform_result['recipe_count']} recipes, "
-        f"{transform_result['main_count']} is_main"
-    )
+        print(
+            f"  {transform_result['recipe_count']} recipes, "
+            f"{transform_result['main_count']} is_main"
+        )
 
-    print("\n=== Load ===")
-    try:
-        load_result = run_load(transform_result)
-    except Exception as exc:
-        print(f"*** Load failed: {exc}")
-        return 1
-    print(f"  loaded {load_result['total']} recipes ({load_result['is_main']} is_main)")
+        print("\n=== Load ===")
+        try:
+            load_result = run_load(transform_result)
+        except Exception as exc:
+            print(f"*** Load failed: {exc}")
+            return 1
+        print(f"  loaded {load_result['total']} recipes ({load_result['is_main']} is_main)")
+    else:
+        transform_result = None
 
     print("\n=== Verify ===")
     if run_verify(check_index=args.check_index) != 0:
         return 1
 
-    if not args.skip_idempotency_check:
+    if not args.verify_only and not args.skip_idempotency_check:
         if not prove_idempotent_reload(transform_result):
             return 1
 
