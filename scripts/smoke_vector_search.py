@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import sys
 
+import _repo_path  # noqa: F401 — add repo root to sys.path
+
 from etl import config
 from etl.mongo_client import make_client
 from etl.verify import check_vector_index_ready, supports_vector_search

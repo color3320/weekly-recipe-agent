@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import sys
 
-from pymongo import MongoClient
+import _repo_path  # noqa: F401 — add repo root to sys.path
+
 from pymongo.operations import SearchIndexModel
 
 from etl import config
