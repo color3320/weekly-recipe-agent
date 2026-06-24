@@ -7,11 +7,12 @@ XLSX_PATH = REPO_ROOT / "IndianFoodDatasetXLS.xlsx"
 
 MONGODB_URI = os.environ.get(
     "MONGODB_URI",
-    "mongodb://localhost:27017/weekly_recipes",
+    "mongodb://localhost:27017/weekly_recipes?directConnection=true",
 )
 MONGODB_DB = os.environ.get("MONGODB_DB", "weekly_recipes")
 RECIPES_COLLECTION = "recipes"
 VECTOR_SEARCH_INDEX = "recipe_vec"
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "voyage-4-lite")
 
 EXPECTED_TOTAL_DOCS = 6871
 EXPECTED_MAIN_DOCS = 2862

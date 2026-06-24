@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from typing import Any
 from urllib.parse import urlparse
 
 from pymongo import MongoClient
+from pymongo.errors import OperationFailure
 
 from etl import config
 
@@ -22,10 +24,24 @@ class VerifyResult:
         self.passed = passed
 
 
-def is_atlas_uri(uri: str | None = None) -> bool:
+def is_atlas_hosted_uri(uri: str | None = None) -> bool:
     parsed = urlparse(uri or config.MONGODB_URI)
     host = (parsed.hostname or "").lower()
     return host.endswith(".mongodb.net") or "atlas" in host
+
+
+def supports_vector_search(client: MongoClient, uri: str | None = None) -> bool:
+    """True when the deployment exposes MongoDB Vector Search (Atlas or atlas-local)."""
+    if os.environ.get("MONGODB_VECTOR_SEARCH", "").strip() in {"1", "true", "yes"}:
+        return True
+    if is_atlas_hosted_uri(uri):
+        return True
+    try:
+        collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
+        collection.list_search_indexes()
+        return True
+    except OperationFailure:
+        return False
 
 
 def compute_metrics(
@@ -164,8 +180,11 @@ def run_verify(
         computed = compute_metrics(client, mongodb_uri=uri)
         index_status: str | None = None
         if check_index:
-            if not is_atlas_uri(uri):
-                print("*** --check-index skipped: MONGODB_URI is not Atlas")
+            if not supports_vector_search(client, uri):
+                print(
+                    "*** --check-index skipped: deployment does not support "
+                    "vector search (use atlas-local or Atlas)"
+                )
             else:
                 print(f"Polling vector index {config.VECTOR_SEARCH_INDEX!r} for READY...")
                 index_status = check_vector_index_ready(client)

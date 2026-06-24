@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-index",
         action="store_true",
-        help="Poll Atlas vector search index until READY (Atlas only).",
+        help="Poll vector search index until READY (Atlas or atlas-local).",
     )
     args = parser.parse_args(argv)
 

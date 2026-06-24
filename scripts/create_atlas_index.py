@@ -10,25 +10,27 @@ from pymongo.operations import SearchIndexModel
 
 from etl import config
 
-INDEX_DEFINITION = {
-    "fields": [
-        {
-            "type": "autoEmbed",
-            "modality": "text",
-            "path": "embed_text",
-            "model": "voyage-4",
-        },
-        {"type": "filter", "path": "cuisine_group"},
-        {"type": "filter", "path": "diet"},
-        {"type": "filter", "path": "is_main"},
-    ]
-}
+
+def index_definition() -> dict:
+    return {
+        "fields": [
+            {
+                "type": "autoEmbed",
+                "modality": "text",
+                "path": "embed_text",
+                "model": config.EMBEDDING_MODEL,
+            },
+            {"type": "filter", "path": "is_main"},
+            {"type": "filter", "path": "cuisine_group"},
+            {"type": "filter", "path": "diet"},
+        ]
+    }
 
 
 def main() -> int:
     uri = os.environ.get("MONGODB_URI", config.MONGODB_URI).strip()
     if not uri:
-        print("Set MONGODB_URI to your Atlas connection string.", file=sys.stderr)
+        print("Set MONGODB_URI to your MongoDB connection string.", file=sys.stderr)
         return 1
 
     client = MongoClient(uri)
@@ -40,13 +42,14 @@ def main() -> int:
             return 0
 
         model = SearchIndexModel(
-            definition=INDEX_DEFINITION,
+            definition=index_definition(),
             name=config.VECTOR_SEARCH_INDEX,
             type="vectorSearch",
         )
         collection.create_search_index(model)
         print(
-            f"Created vector search index {config.VECTOR_SEARCH_INDEX!r}. "
+            f"Created vector search index {config.VECTOR_SEARCH_INDEX!r} "
+            f"(model={config.EMBEDDING_MODEL!r}). "
             "Poll status in Atlas UI or run: python -m etl.run_etl --check-index"
         )
     except Exception as exc:
