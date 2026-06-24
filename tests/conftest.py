@@ -10,11 +10,13 @@ import pytest
 
 from etl import config
 
-TARGETS_PATH = Path(config.OUTPUT_VERIFY_TARGETS)
+TARGETS_PATH = Path(getattr(config, "OUTPUT_VERIFY_TARGETS", "data/verify_targets.json"))
 
 
 @pytest.fixture(scope="session")
 def targets() -> dict:
+    if not TARGETS_PATH.is_file():
+        pytest.skip(f"Hotel verify targets not found: {TARGETS_PATH}")
     return json.loads(TARGETS_PATH.read_text(encoding="utf-8"))
 
 

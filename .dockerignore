@@ -6,7 +6,6 @@ data/agent_checkpoints.db
 .git/
 tests/
 etl/extract.py
-etl/scrape_verify.py
 data/
 Part_7_cmd.txt
 what_do_i_want_to_do.md

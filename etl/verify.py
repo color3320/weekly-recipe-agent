@@ -1,32 +1,15 @@
-"""Recompute /verify metrics in SQL and compare to verify_targets.json."""
+"""Verify recipe collection counts and field completeness after load."""
 
 from __future__ import annotations
 
-import json
 import sys
-from decimal import Decimal, ROUND_HALF_UP
-from pathlib import Path
+import time
 from typing import Any
+from urllib.parse import urlparse
 
-import psycopg
-from psycopg.rows import dict_row
+from pymongo import MongoClient
 
 from etl import config
-from etl.metric_windows import (
-    SQL_ADR_BY_ROOM_TYPE,
-    SQL_CANCELLED_RESERVATIONS,
-    SQL_CURRENT_RESERVATIONS,
-    SQL_DATASET_AS_OF,
-    SQL_LAST_YEAR_RESERVATIONS,
-    SQL_OTB_NIGHTS_BY_MARKET,
-    SQL_OTB_ROOM_NIGHTS,
-    SQL_OTB_ROOM_REVENUE,
-    SQL_OTB_TOTAL_REVENUE,
-    SQL_STLY_ROOM_NIGHTS,
-    SQL_STLY_TOTAL_REVENUE,
-    SQL_TOTAL_RESERVATIONS,
-    SQL_TOTAL_STAY_ROWS,
-)
 
 
 class VerifyResult:
@@ -39,149 +22,120 @@ class VerifyResult:
         self.passed = passed
 
 
-def load_targets(path: str | Path | None = None) -> dict[str, Any]:
-    p = Path(path or config.OUTPUT_VERIFY_TARGETS)
-    return json.loads(p.read_text(encoding="utf-8"))
-
-
-def _quantize_money(value: Decimal | int | float | None) -> Decimal:
-    if value is None:
-        return Decimal("0")
-    if not isinstance(value, Decimal):
-        value = Decimal(str(value))
-    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-def _normalize_computed(value: Any, *, is_money: bool = False) -> int | Decimal:
-    if value is None:
-        return 0 if not is_money else Decimal("0.00")
-    if is_money:
-        return _quantize_money(value)
-    if isinstance(value, Decimal):
-        return int(value) if value == value.to_integral_value() else value
-    return int(value)
-
-
-def _normalize_target(value: Any, *, is_money: bool = False) -> int | Decimal:
-    if is_money:
-        return _quantize_money(value)
-    if isinstance(value, float):
-        return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return int(value)
-
-
-def _compare(computed: Any, target: Any, *, is_money: bool = False) -> bool:
-    c = _normalize_computed(computed, is_money=is_money)
-    t = _normalize_target(target, is_money=is_money)
-    return c == t
-
-
-def _fetch_scalar(cur, sql: str, params: dict[str, Any]) -> Any:
-    cur.execute(sql, params)
-    row = cur.fetchone()
-    if row is None:
-        return None
-    if isinstance(row, dict):
-        return next(iter(row.values()))
-    return row[0]
+def is_atlas_uri(uri: str | None = None) -> bool:
+    parsed = urlparse(uri or config.MONGODB_URI)
+    host = (parsed.hostname or "").lower()
+    return host.endswith(".mongodb.net") or "atlas" in host
 
 
 def compute_metrics(
-    conn: psycopg.Connection,
-    as_of_date: str,
+    client: MongoClient | None = None,
+    *,
+    mongodb_uri: str | None = None,
 ) -> dict[str, Any]:
-    params = {"as_of_date": as_of_date}
-    metrics: dict[str, Any] = {}
+    owns_client = client is None
+    if owns_client:
+        client = MongoClient(mongodb_uri or config.MONGODB_URI)
 
-    with conn.cursor(row_factory=dict_row) as cur:
-        metrics["total_reservations"] = _fetch_scalar(cur, SQL_TOTAL_RESERVATIONS, params)
-        metrics["total_stay_rows"] = _fetch_scalar(cur, SQL_TOTAL_STAY_ROWS, params)
-        metrics["current_reservations"] = _fetch_scalar(cur, SQL_CURRENT_RESERVATIONS, params)
-        metrics["last_year_reservations"] = _fetch_scalar(cur, SQL_LAST_YEAR_RESERVATIONS, params)
-        metrics["cancelled_reservations"] = _fetch_scalar(cur, SQL_CANCELLED_RESERVATIONS, params)
-        metrics["otb_room_nights"] = _fetch_scalar(cur, SQL_OTB_ROOM_NIGHTS, params)
-        metrics["otb_room_revenue_before_tax"] = _fetch_scalar(cur, SQL_OTB_ROOM_REVENUE, params)
-        metrics["otb_total_revenue_before_tax"] = _fetch_scalar(cur, SQL_OTB_TOTAL_REVENUE, params)
-        metrics["stly_room_nights"] = _fetch_scalar(cur, SQL_STLY_ROOM_NIGHTS, params)
-        metrics["stly_total_revenue_before_tax"] = _fetch_scalar(cur, SQL_STLY_TOTAL_REVENUE, params)
+    try:
+        collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
+        total = collection.count_documents({})
+        main = collection.count_documents({"is_main": True})
+        missing_display = collection.count_documents(
+            {"$or": [{"display_name": None}, {"display_name": ""}]}
+        )
+        missing_embed = collection.count_documents(
+            {"$or": [{"embed_text": None}, {"embed_text": ""}]}
+        )
+        indian_main = collection.count_documents(
+            {"is_main": True, "cuisine_group": "Indian"}
+        )
+        main_indian_pct = round(100 * indian_main / main, 1) if main else 0.0
+    finally:
+        if owns_client:
+            client.close()
 
-        cur.execute(SQL_ADR_BY_ROOM_TYPE, params)
-        metrics["adr_by_room_type"] = {row["space_type"]: row["adr"] for row in cur.fetchall()}
-
-        cur.execute(SQL_OTB_NIGHTS_BY_MARKET, params)
-        metrics["otb_room_nights_by_market"] = {
-            row["market_code"]: row["room_nights"] for row in cur.fetchall()
-        }
-
-        metrics["dataset_as_of_date"] = _fetch_scalar(cur, SQL_DATASET_AS_OF, params)
-
-    return metrics
-
-
-def build_results(computed: dict[str, Any], targets: dict[str, Any]) -> list[VerifyResult]:
-    results: list[VerifyResult] = []
-    scalars = targets.get("scalars", {})
-
-    scalar_money = {
-        "otb_room_revenue_before_tax",
-        "otb_total_revenue_before_tax",
-        "stly_total_revenue_before_tax",
+    return {
+        "total_documents": total,
+        "main_documents": main,
+        "missing_display_name": missing_display,
+        "missing_embed_text": missing_embed,
+        "indian_main_documents": indian_main,
+        "main_indian_pct": main_indian_pct,
     }
 
-    for key in (
-        "total_reservations",
-        "total_stay_rows",
-        "current_reservations",
-        "last_year_reservations",
-        "cancelled_reservations",
-        "otb_room_nights",
-        "otb_room_revenue_before_tax",
-        "otb_total_revenue_before_tax",
-        "stly_room_nights",
-        "stly_total_revenue_before_tax",
-    ):
-        target = scalars.get(key)
-        comp = computed.get(key)
-        is_money = key in scalar_money
+
+def check_vector_index_ready(
+    client: MongoClient,
+    *,
+    index_name: str | None = None,
+    timeout_sec: int = 300,
+    poll_interval_sec: int = 5,
+) -> str | None:
+    """Return index status if found, else None. Poll until READY or timeout."""
+    name = index_name or config.VECTOR_SEARCH_INDEX
+    collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
+    deadline = time.monotonic() + timeout_sec
+
+    while time.monotonic() < deadline:
+        for index in collection.list_search_indexes():
+            if index.get("name") == name:
+                status = index.get("status", "UNKNOWN")
+                if status == "READY":
+                    return status
+                if status in {"FAILED", "DOES_NOT_EXIST"}:
+                    return status
+        time.sleep(poll_interval_sec)
+
+    return "TIMEOUT"
+
+
+def build_results(
+    computed: dict[str, Any],
+    *,
+    index_status: str | None = None,
+    check_index: bool = False,
+) -> list[VerifyResult]:
+    results: list[VerifyResult] = []
+
+    low = config.EXPECTED_MAIN_DOCS - config.MAIN_DOC_TOLERANCE
+    high = config.EXPECTED_MAIN_DOCS + config.MAIN_DOC_TOLERANCE
+    main = computed["main_documents"]
+    main_ok = low <= main <= high
+
+    checks = [
+        (
+            "total_documents",
+            computed["total_documents"],
+            config.EXPECTED_TOTAL_DOCS,
+            computed["total_documents"] == config.EXPECTED_TOTAL_DOCS,
+        ),
+        (
+            "main_documents",
+            main,
+            f"{config.EXPECTED_MAIN_DOCS} ± {config.MAIN_DOC_TOLERANCE}",
+            main_ok,
+        ),
+        ("missing_display_name", computed["missing_display_name"], 0, computed["missing_display_name"] == 0),
+        ("missing_embed_text", computed["missing_embed_text"], 0, computed["missing_embed_text"] == 0),
+        (
+            "main_indian_pct",
+            computed["main_indian_pct"],
+            ">= 70%",
+            computed["main_indian_pct"] >= 70.0,
+        ),
+    ]
+
+    for name, comp, target, passed in checks:
+        results.append(VerifyResult(name, comp, target, passed))
+
+    if check_index:
         results.append(
             VerifyResult(
-                key,
-                _normalize_computed(comp, is_money=is_money),
-                _normalize_target(target, is_money=is_money) if target is not None else None,
-                _compare(comp, target, is_money=is_money) if target is not None else False,
-            )
-        )
-
-    anchor = targets.get("anchor_date")
-    db_as_of = computed.get("dataset_as_of_date")
-    results.append(
-        VerifyResult(
-            "dataset_metadata.as_of_date",
-            str(db_as_of) if db_as_of else None,
-            anchor,
-            str(db_as_of) == anchor if db_as_of and anchor else False,
-        )
-    )
-
-    for room, target in sorted(targets.get("adr_by_room_type", {}).items()):
-        comp = computed.get("adr_by_room_type", {}).get(room)
-        results.append(
-            VerifyResult(
-                f"adr_by_room_type.{room}",
-                _normalize_computed(comp, is_money=True),
-                _normalize_target(target, is_money=True),
-                _compare(comp, target, is_money=True),
-            )
-        )
-
-    for market, target in sorted(targets.get("otb_room_nights_by_market", {}).items()):
-        comp = computed.get("otb_room_nights_by_market", {}).get(market)
-        results.append(
-            VerifyResult(
-                f"otb_room_nights_by_market.{market}",
-                _normalize_computed(comp),
-                _normalize_target(target),
-                _compare(comp, target),
+                f"vector_index.{config.VECTOR_SEARCH_INDEX}",
+                index_status or "NOT_FOUND",
+                "READY",
+                index_status == "READY",
             )
         )
 
@@ -199,39 +153,29 @@ def print_report(results: list[VerifyResult]) -> None:
         print(f"{r.name.ljust(name_w)} | {comp:>14} | {targ:>14} | {status}")
 
 
-def print_failures(results: list[VerifyResult]) -> None:
-    failures = [r for r in results if not r.passed]
-    if not failures:
-        return
-    print("\n*** MISMATCHES ***")
-    for r in failures:
-        try:
-            diff = Decimal(str(r.computed)) - Decimal(str(r.target))
-            print(f"  {r.name}: computed={r.computed} target={r.target} diff={diff}")
-        except Exception:
-            print(f"  {r.name}: computed={r.computed!r} target={r.target!r}")
-
-
 def run_verify(
     *,
-    database_url: str | None = None,
-    targets_path: str | Path | None = None,
+    mongodb_uri: str | None = None,
+    check_index: bool = False,
 ) -> int:
-    targets = load_targets(targets_path)
-    as_of = targets.get("anchor_date")
-    if not as_of:
-        print("*** verify_targets.json missing anchor_date")
-        return 1
+    uri = mongodb_uri or config.MONGODB_URI
+    client = MongoClient(uri)
+    try:
+        computed = compute_metrics(client, mongodb_uri=uri)
+        index_status: str | None = None
+        if check_index:
+            if not is_atlas_uri(uri):
+                print("*** --check-index skipped: MONGODB_URI is not Atlas")
+            else:
+                print(f"Polling vector index {config.VECTOR_SEARCH_INDEX!r} for READY...")
+                index_status = check_vector_index_ready(client)
+    finally:
+        client.close()
 
-    url = database_url or config.DATABASE_URL
-    with psycopg.connect(url) as conn:
-        computed = compute_metrics(conn, as_of)
-
-    results = build_results(computed, targets)
+    results = build_results(computed, index_status=index_status, check_index=check_index)
     print_report(results)
-    failures = [r for r in results if not r.passed]
-    print_failures(results)
 
+    failures = [r for r in results if not r.passed]
     if failures:
         print(f"\n*** VERIFY FAILED ({len(failures)} mismatch(es))")
         return 1
@@ -241,7 +185,8 @@ def run_verify(
 
 
 def main() -> None:
-    sys.exit(run_verify())
+    check_index = "--check-index" in sys.argv
+    sys.exit(run_verify(check_index=check_index))
 
 
 if __name__ == "__main__":

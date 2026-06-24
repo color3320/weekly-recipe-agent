@@ -1,5 +1,12 @@
-version: "3.9"
 services:
+  mongo:
+    image: mongo:7
+    container_name: weekly-recipes-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
   postgres:
     image: postgres:16
     container_name: hackathon-postgres
@@ -11,3 +18,6 @@ services:
       - "5432:5432"
     volumes:
       - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  mongo_data:
