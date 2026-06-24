@@ -12,6 +12,7 @@ from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
 from etl import config
+from etl.mongo_client import make_client
 
 
 class VerifyResult:
@@ -51,7 +52,7 @@ def compute_metrics(
 ) -> dict[str, Any]:
     owns_client = client is None
     if owns_client:
-        client = MongoClient(mongodb_uri or config.MONGODB_URI)
+        client = make_client(mongodb_uri or config.MONGODB_URI)
 
     try:
         collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
@@ -175,7 +176,7 @@ def run_verify(
     check_index: bool = False,
 ) -> int:
     uri = mongodb_uri or config.MONGODB_URI
-    client = MongoClient(uri)
+    client = make_client(uri)
     try:
         computed = compute_metrics(client, mongodb_uri=uri)
         index_status: str | None = None

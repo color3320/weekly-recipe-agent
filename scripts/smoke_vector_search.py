@@ -5,9 +5,8 @@ from __future__ import annotations
 import os
 import sys
 
-from pymongo import MongoClient
-
 from etl import config
+from etl.mongo_client import make_client
 from etl.verify import check_vector_index_ready, supports_vector_search
 
 SMOKE_QUERY = "comforting lentil curry"
@@ -21,7 +20,7 @@ def run_smoke_search(
     wait_for_index: bool = True,
 ) -> list[dict]:
     uri = mongodb_uri or os.environ.get("MONGODB_URI", config.MONGODB_URI)
-    client = MongoClient(uri)
+    client = make_client(uri)
     try:
         if not supports_vector_search(client, uri):
             raise RuntimeError(

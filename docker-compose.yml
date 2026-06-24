@@ -2,8 +2,12 @@ services:
   mongodb:
     image: mongodb/mongodb-atlas-local:preview
     container_name: weekly-recipes-mongodb
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - VOYAGE_API_KEY=${VOYAGE_API_KEY}
+      - MONGODB_INITDB_DATABASE=${MONGODB_DB:-weekly_recipes}
     ports:
       - "27017:27017"
     volumes:
@@ -12,7 +16,8 @@ services:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 90s
 
   postgres:
     image: postgres:16

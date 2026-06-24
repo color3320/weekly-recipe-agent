@@ -10,6 +10,7 @@ from pymongo import MongoClient
 
 from etl import config
 from etl.models import RecipeDocument
+from etl.mongo_client import make_client, wait_for_writable
 
 
 class LoadError(Exception):
@@ -19,7 +20,7 @@ class LoadError(Exception):
 def get_collection(client: MongoClient | None = None):
     owns_client = client is None
     if owns_client:
-        client = MongoClient(config.MONGODB_URI)
+        client = make_client()
     db = client[config.MONGODB_DB]
     return client, db[config.RECIPES_COLLECTION], owns_client
 
@@ -38,8 +39,9 @@ def run_load(
         raise LoadError("No documents to load")
 
     uri = mongodb_uri or config.MONGODB_URI
-    client = MongoClient(uri)
+    client = make_client(uri)
     try:
+        wait_for_writable(client)
         db = client[config.MONGODB_DB]
         collection = db[config.RECIPES_COLLECTION]
         collection.delete_many({})
@@ -58,7 +60,7 @@ def run_load(
 
 def snapshot_counts(mongodb_uri: str | None = None) -> dict[str, Any]:
     uri = mongodb_uri or config.MONGODB_URI
-    client = MongoClient(uri)
+    client = make_client(uri)
     try:
         collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
         total = collection.count_documents({})

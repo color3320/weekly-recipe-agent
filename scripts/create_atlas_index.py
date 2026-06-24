@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from pymongo.operations import SearchIndexModel
 
 from etl import config
+from etl.mongo_client import make_client
 
 
 def index_definition() -> dict:
@@ -33,7 +34,7 @@ def main() -> int:
         print("Set MONGODB_URI to your MongoDB connection string.", file=sys.stderr)
         return 1
 
-    client = MongoClient(uri)
+    client = make_client(uri)
     try:
         collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
         existing = {idx.get("name") for idx in collection.list_search_indexes()}
