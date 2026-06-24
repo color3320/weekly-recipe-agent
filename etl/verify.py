@@ -95,14 +95,17 @@ def check_vector_index_ready(
     timeout_sec: int | None = None,
     poll_interval_sec: int = 10,
     log_progress: bool = True,
+    fail_fast_stuck_sec: int = 120,
 ) -> str:
     """Poll until the vector index is queryable. Returns final status label."""
     name = index_name or config.VECTOR_SEARCH_INDEX
     collection = client[config.MONGODB_DB][config.RECIPES_COLLECTION]
     timeout = timeout_sec if timeout_sec is not None else config.INDEX_READY_TIMEOUT_SEC
     deadline = time.monotonic() + timeout
+    stuck_deadline = time.monotonic() + fail_fast_stuck_sec
     last_status = "NOT_FOUND"
     last_num_docs: int | None = None
+    stuck_warned = False
 
     while time.monotonic() < deadline:
         found = False
@@ -130,13 +133,27 @@ def check_vector_index_ready(
         if not found and log_progress:
             print(f"  index {name!r}: not found yet")
 
+        if (
+            not stuck_warned
+            and time.monotonic() >= stuck_deadline
+            and last_status == "BUILDING"
+            and (last_num_docs or 0) == 0
+        ):
+            stuck_warned = True
+            print(
+                "\n  Index still BUILDING with numDocs=0 after "
+                f"{fail_fast_stuck_sec}s — likely Voyage rate limits.\n"
+                "  Run: python scripts/check_voyage_key.py\n"
+                "  Then add a payment method: Atlas → Billing (see Voyage billing docs).\n"
+                "  Polling will continue, or Ctrl+C and fix billing first."
+            )
+
         time.sleep(poll_interval_sec)
 
     if last_status == "BUILDING" and (last_num_docs or 0) == 0:
         print(
-            "\n  Hint: auto-embed index still building with numDocs=0. "
-            "Check docker logs for Voyage 429 rate limits; confirm VOYAGE_API_KEY "
-            "in .env and that the mongodb container was started with it."
+            "\n  Hint: auto-embed never indexed any docs. "
+            "Run python scripts/check_voyage_key.py and fix Voyage billing/key first."
         )
 
     return "TIMEOUT"

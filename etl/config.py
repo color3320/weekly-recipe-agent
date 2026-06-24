@@ -3,6 +3,13 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / ".env")
+except ImportError:
+    pass
+
 XLSX_PATH = REPO_ROOT / "IndianFoodDatasetXLS.xlsx"
 
 MONGODB_URI = os.environ.get(
